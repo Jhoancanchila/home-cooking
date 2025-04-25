@@ -1,23 +1,23 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { SupabaseAuthService } from '../adapters/api/SupabaseAuthService';
-import { SupabaseUserRepository } from '../adapters/api/SupabaseUserRepository';
+import { SupabaseUserProfileRepository } from '../adapters/api/SupabaseUserRepository';
 import { ValidateUserAuth } from '../core/use-cases/ValidateUserAuth';
-import { User } from '../core/entities/User';
+import { UserProfile } from '../core/entities/User';
 
 // Definir el tipo de contexto
 interface AuthContextType {
   session: Session | null;
   user: SupabaseUser | null;
-  userData: User | null;
+  userData: UserProfile | null;
   loading: boolean;
   error: string | null;
   isAuthenticated: boolean;
   isRegisteredUser: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
-  updateUserProfile: (userData: Partial<User>) => Promise<{ success: boolean; error: string | null }>;
-  getUserProfile: () => Promise<{ success: boolean; data: User | null; error: string | null }>;
+  updateUserProfile: (userData: Partial<UserProfile>) => Promise<{ success: boolean; error: string | null }>;
+  getUserProfile: () => Promise<{ success: boolean; data: UserProfile | null; error: string | null }>;
 }
 
 // Crear el contexto
@@ -25,8 +25,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Inicializar servicios usando Clean Architecture
 const authService = new SupabaseAuthService();
-const userRepository = new SupabaseUserRepository();
-const validateUserAuth = new ValidateUserAuth(userRepository);
+const userProfileRepository = new SupabaseUserProfileRepository();
+const validateUserAuth = new ValidateUserAuth(userProfileRepository);
 
 // Proveedor del contexto
 interface AuthProviderProps {
@@ -36,7 +36,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<SupabaseUser | null>(null);
-  const [userData, setUserData] = useState<User | null>(null);
+  const [userData, setUserData] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isRegisteredUser, setIsRegisteredUser] = useState<boolean>(false);
@@ -46,14 +46,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const initialSessionProcessed = useRef<boolean>(false);
 
   // Obtener datos del perfil del usuario de nuestra base de datos
-  const getUserProfile = async (): Promise<{ success: boolean; data: User | null; error: string | null }> => {
+  const getUserProfile = async (): Promise<{ success: boolean; data: UserProfile | null; error: string | null }> => {
     try {
       if (!user?.email) {
         return { success: false, data: null, error: 'No hay un usuario autenticado' };
       }
 
       // Obtener los datos del usuario desde la base de datos
-      const { data, error } = await userRepository.getUserByEmail(user.email);
+      const { data, error } = await userProfileRepository.getUserProfileByEmail(user.email);
 
       if (error) {
         console.error('Error al obtener el perfil del usuario:', error);
@@ -75,7 +75,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Actualizar los datos del perfil del usuario
-  const updateUserProfile = async (updatedData: Partial<User>): Promise<{ success: boolean; error: string | null }> => {
+  const updateUserProfile = async (updatedData: Partial<UserProfile>): Promise<{ success: boolean; error: string | null }> => {
     try {
       if (!userData || !userData.id) {
         // Si no tenemos datos del usuario, intentamos obtenerlos primero
@@ -87,7 +87,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       // Actualizar los datos en la base de datos
-      const { data, error } = await userRepository.updateUser(userData!.id!, updatedData);
+      const { data, error } = await userProfileRepository.updateUserProfile(userData!.id!, updatedData);
 
       if (error) {
         console.error('Error al actualizar el perfil del usuario:', error);
@@ -158,20 +158,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userExists = await checkRegisteredUser(userEmail);
       
       if (!userExists) {
-        // Crear un nuevo usuario con los datos disponibles
-        const newUser: User = {
+        // Crear un nuevo perfil de usuario con los datos disponibles
+        const newUserProfile: UserProfile = {
           name: currentUser.user_metadata?.full_name || `Usuario ${source}`,
           email: userEmail,
           phone: currentUser.user_metadata?.phone || '000-000-0000',
           source: source.toLowerCase(),
         };
         
-        // Guardar el nuevo usuario en la base de datos
-        const { error: saveError } = await userRepository.saveUser(newUser);
+        // Guardar el nuevo perfil de usuario en la base de datos
+        const { error: saveError } = await userProfileRepository.saveUserProfile(newUserProfile);
         
         if (saveError) {
-          console.error('Error al guardar el usuario:', saveError);
-          throw new Error(`Error al guardar la información del usuario: ${saveError.message}`);
+          console.error('Error al guardar el perfil de usuario:', saveError);
+          throw new Error(`Error al guardar la información del perfil de usuario: ${saveError.message}`);
         }
         
         // Actualizar el estado para reflejar que el usuario ahora está registrado
@@ -184,7 +184,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return true;
     } catch (err) {
       // Propagar el error para que pueda ser manejado adecuadamente
-      console.error('Error al guardar el usuario:', err);
+      console.error('Error al guardar el perfil de usuario:', err);
       throw err;
     } finally {
       // Siempre limpiar el estado, sea éxito o error

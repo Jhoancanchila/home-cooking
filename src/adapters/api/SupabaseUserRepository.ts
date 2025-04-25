@@ -1,8 +1,8 @@
-import { UserRepository } from '../../core/ports/UserRepository';
-import { User } from '../../core/entities/User';
+import { UserProfileRepository } from '../../core/ports/UserRepository';
+import { UserProfile } from '../../core/entities/User';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-export class SupabaseUserRepository implements UserRepository {
+export class SupabaseUserProfileRepository implements UserProfileRepository {
   private supabase: SupabaseClient;
   private userCheckInProgress: {[email: string]: boolean} = {};
 
@@ -13,42 +13,42 @@ export class SupabaseUserRepository implements UserRepository {
     this.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
 
-  async saveUser(userData: User) {
+  async saveUserProfile(userProfile: UserProfile) {
     // Usar mutex basado en email para evitar operaciones concurrentes sobre el mismo usuario
-    if (this.userCheckInProgress[userData.email]) {
+    if (this.userCheckInProgress[userProfile.email]) {
       // Esperar hasta que la operación anterior termine (simple polling)
       let attempt = 0;
       const maxAttempts = 10; // Máximo 10 intentos (5 segundos)
       
-      while (this.userCheckInProgress[userData.email] && attempt < maxAttempts) {
+      while (this.userCheckInProgress[userProfile.email] && attempt < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 500)); // Esperar 500ms
         attempt++;
       }
       
-      if (this.userCheckInProgress[userData.email]) {
+      if (this.userCheckInProgress[userProfile.email]) {
         // Verificar si el usuario ya existe después del tiempo de espera
-        const exists = await this.findUserByEmail(userData.email);
+        const exists = await this.findUserProfileByEmail(userProfile.email);
         if (exists) {
-          return { data: [{...userData, id: 'existing-user'}], error: null };
+          return { data: [{...userProfile, id: 'existing-user'}], error: null };
         }
       }
     }
     
-    this.userCheckInProgress[userData.email] = true;
+    this.userCheckInProgress[userProfile.email] = true;
     
     try {
       // Verificar primero si el usuario ya existe (para evitar duplicados)
       const { data: existingUser, error: checkError } = await this.supabase
-        .from('users')
+        .from('user_profile')
         .select('*')
-        .eq('email', userData.email)
+        .eq('email', userProfile.email)
         .maybeSingle(); // Usar maybeSingle en lugar de single para evitar errores
       
       if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no se encontró ningún registro
-        console.error('Error al verificar si el usuario existe:', checkError);
+        console.error('Error al verificar si el perfil de usuario existe:', checkError);
         if (checkError.code === '404' || checkError.message.includes('does not exist')) {
-          console.error('La tabla "users" no existe en la base de datos.');
-          throw new Error('La tabla "users" no existe en la base de datos. Debes crear las tablas necesarias en Supabase.');
+          console.error('La tabla "user_profile" no existe en la base de datos.');
+          throw new Error('La tabla "user_profile" no existe en la base de datos. Debes crear las tablas necesarias en Supabase.');
         }
       }
       
@@ -57,14 +57,14 @@ export class SupabaseUserRepository implements UserRepository {
       }
       
       // Verificar una vez más para asegurarnos (doble verificación)
-      const userExists = await this.findUserByEmail(userData.email);
+      const userExists = await this.findUserProfileByEmail(userProfile.email);
       if (userExists) {
-        return { data: [{...userData, id: 'existing-user-double-check'}], error: null };
+        return { data: [{...userProfile, id: 'existing-user-double-check'}], error: null };
       }
       
       const { data, error } = await this.supabase
-        .from('users')
-        .insert([userData])
+        .from('user_profile')
+        .insert([userProfile])
         .select();
 
       if (error) {
@@ -72,111 +72,110 @@ export class SupabaseUserRepository implements UserRepository {
         if (error.code === '23505' || error.message.includes('violates unique constraint')) {
           // Intentar recuperar el registro ya existente
           const { data: conflictUser } = await this.supabase
-            .from('users')
+            .from('user_profile')
             .select('*')
-            .eq('email', userData.email)
+            .eq('email', userProfile.email)
             .maybeSingle();
             
           if (conflictUser) {
             return { data: [conflictUser], error: null };
           }
           
-          return { data: [{...userData, id: 'conflict-user'}], error: null };
+          return { data: [{...userProfile, id: 'conflict-user'}], error: null };
         }
         
-        console.error('Error al guardar el usuario:', error);
+        console.error('Error al guardar el perfil de usuario:', error);
         
         // Comprobar si el error es de tipo 404 (tabla no existe)
         if (error.code === '404' || error.message.includes('does not exist')) {
-          console.error('La tabla "users" no existe en la base de datos.');
-          throw new Error('La tabla "users" no existe en la base de datos. Debes crear las tablas necesarias en Supabase.');
+          console.error('La tabla "user_profile" no existe en la base de datos.');
+          throw new Error('La tabla "user_profile" no existe en la base de datos. Debes crear las tablas necesarias en Supabase.');
         }
         
-        throw new Error('Error al guardar el usuario: ' + error.message);
+        throw new Error('Error al guardar el perfil de usuario: ' + error.message);
       }
 
       return { data, error };
     } catch (err) {
-      console.error('Excepción al guardar usuario:', err);
+      console.error('Excepción al guardar perfil de usuario:', err);
       
       return { 
         data: null, 
-        error: err instanceof Error ? err : new Error('Error desconocido al guardar usuario') 
+        error: err instanceof Error ? err : new Error('Error desconocido al guardar perfil de usuario') 
       };
     } finally {
-      this.userCheckInProgress[userData.email] = false;
+      this.userCheckInProgress[userProfile.email] = false;
     }
   }
 
-  async getUserByEmail(email: string) {
+  async getUserProfileByEmail(email: string) {
     try {
       if (!email) {
         return { data: null, error: new Error('Email no proporcionado') };
       }
       
       const { data, error } = await this.supabase
-        .from('users')
+        .from('user_profile')
         .select('*')
         .eq('email', email)
         .maybeSingle();
 
       if (error) {
-        console.error('Error al obtener el usuario por email:', error);
+        console.error('Error al obtener el perfil de usuario por email:', error);
         return { data: null, error };
       }
 
       return { data, error: null };
     } catch (err) {
-      console.error('Excepción al obtener usuario por email:', err);
+      console.error('Excepción al obtener perfil de usuario por email:', err);
       return { 
         data: null, 
-        error: err instanceof Error ? err : new Error('Error desconocido al obtener usuario') 
+        error: err instanceof Error ? err : new Error('Error desconocido al obtener perfil de usuario') 
       };
     }
   }
 
-  async updateUser(userId: string, userData: Partial<User>) {
+  async updateUserProfile(userId: string, userProfileData: Partial<UserProfile>) {
     try {
       if (!userId) {
         return { data: null, error: new Error('ID de usuario no proporcionado') };
       }
       
-      // Eliminar campos que no deberían actualizarse
-      const updateData: Partial<User> = {};
-      
       // Solo copiar los campos que se pueden actualizar
-      if (userData.name !== undefined) updateData.name = userData.name;
-      if (userData.phone !== undefined) updateData.phone = userData.phone;
+      const updateData: Partial<UserProfile> = {};
+      
+      if (userProfileData.name !== undefined) updateData.name = userProfileData.name;
+      if (userProfileData.phone !== undefined) updateData.phone = userProfileData.phone;
       
       const { data, error } = await this.supabase
-        .from('users')
+        .from('user_profile')
         .update(updateData)
         .eq('id', userId)
         .select();
 
       if (error) {
-        console.error('Error al actualizar el usuario:', error);
+        console.error('Error al actualizar el perfil de usuario:', error);
         return { data: null, error };
       }
 
       return { data, error: null };
     } catch (err) {
-      console.error('Excepción al actualizar usuario:', err);
+      console.error('Excepción al actualizar perfil de usuario:', err);
       return { 
         data: null, 
-        error: err instanceof Error ? err : new Error('Error desconocido al actualizar usuario') 
+        error: err instanceof Error ? err : new Error('Error desconocido al actualizar perfil de usuario') 
       };
     }
   }
 
-  async findUserByEmail(email: string): Promise<boolean> {
+  async findUserProfileByEmail(email: string): Promise<boolean> {
     try {
       if (!email) {
         return false;
       }
       
       const { data, error } = await this.supabase
-        .from('users')
+        .from('user_profile')
         .select('email')
         .eq('email', email);
 
@@ -186,7 +185,7 @@ export class SupabaseUserRepository implements UserRepository {
         
         // Comprobar si el error es de tipo 404 (tabla no existe)
         if (error.code === '404' || error.message.includes('does not exist')) {
-          console.error('La tabla "users" no existe en la base de datos.');
+          console.error('La tabla "user_profile" no existe en la base de datos.');
         }
         
         return false;

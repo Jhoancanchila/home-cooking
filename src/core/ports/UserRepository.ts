@@ -1,9 +1,9 @@
-import { User } from '../entities/User';
+import { UserProfile } from '../entities/User';
 
 // Puerto para el repositorio de usuarios
-export interface UserRepository {
-  saveUser(user: User): Promise<{ data: User[] | null; error: Error | null }>;
-  findUserByEmail(email: string): Promise<boolean>;
-  getUserByEmail(email: string): Promise<{ data: User | null; error: Error | null }>;
-  updateUser(userId: string, userData: Partial<User>): Promise<{ data: User[] | null; error: Error | null }>;
+export interface UserProfileRepository {
+  saveUserProfile(userProfile: UserProfile): Promise<{ data: UserProfile[] | null; error: Error | null }>;
+  findUserProfileByEmail(email: string): Promise<boolean>;
+  getUserProfileByEmail(email: string): Promise<{ data: UserProfile | null; error: Error | null }>;
+  updateUserProfile(userId: string, userProfileData: Partial<UserProfile>): Promise<{ data: UserProfile[] | null; error: Error | null }>;
 } 

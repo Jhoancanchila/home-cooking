@@ -1,13 +1,13 @@
-import { User } from '../entities/User';
-import { UserRepository } from '../ports/UserRepository';
+import { UserProfile } from '../entities/User';
+import { UserProfileRepository } from '../ports/UserRepository';
 
 // Caso de uso para guardar datos de usuario
 export class SaveUserData {
-  constructor(private userRepository: UserRepository) {}
+  constructor(private userRepository: UserProfileRepository) {}
 
-  async execute(userData: User): Promise<{ success: boolean; error: string | null; data?: User }> {
+  async execute(userData: UserProfile): Promise<{ success: boolean; error: string | null; data?: UserProfile }> {
     try {
-      const { data, error } = await this.userRepository.saveUser(userData);
+      const { data, error } = await this.userRepository.saveUserProfile(userData);
       
       if (error) {
         return { 

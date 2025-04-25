@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LogoIcon from "../../assets/svg/Logo.jsx";
-import { User } from '../../core/entities/User';
+import { UserProfile } from '../../core/entities/User';
 import { SaveUserData } from '../../core/use-cases/SaveUserData';
-import { SupabaseUserRepository } from '../../adapters/api/SupabaseUserRepository';
+import { SupabaseUserProfileRepository } from '../../adapters/api/SupabaseUserRepository';
 import { SaveServiceData } from '../../core/use-cases/SaveServiceData';
 import { SupabaseServiceRepository } from '../../adapters/api/SupabaseServiceRepository';
 import { Service } from '../../core/entities/Service';
 
 // Inicializar el repositorio y el caso de uso
-const userRepository = new SupabaseUserRepository();
+const userRepository = new SupabaseUserProfileRepository();
 const saveUserDataUseCase = new SaveUserData(userRepository);
 
 const serviceRepository = new SupabaseServiceRepository();
@@ -227,7 +227,7 @@ const ServiceSelection: React.FC = () => {
     if (!canContinue()) return;
     
     // Preparar los datos del usuario para guardar
-    const userData: User = {
+    const userData: UserProfile = {
       name: userName,
       email: userEmail,
       phone: userPhone,

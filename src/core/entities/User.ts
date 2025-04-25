@@ -1,5 +1,5 @@
-// Definición de tipos para los datos de usuario en el dominio
-export interface User {
+// Definición de tipos para los datos de perfil de usuario en el dominio
+export interface UserProfile {
   id?: string;
   name: string;
   email: string;
