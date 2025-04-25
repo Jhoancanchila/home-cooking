@@ -4,7 +4,8 @@ import { Link as LinkNavigate, useNavigate } from "react-router-dom";
 // Assets
 import CloseIcon from "../../../assets/svg/CloseIcon.jsx";
 import LogoIcon from "../../../assets/svg/Logo.jsx";
-import { useAuth } from "../../../context/AuthContext";
+import { useAuth } from '../../context/AuthContext.js';
+
 
 interface SidebarProps {
   sidebarOpen: boolean;
@@ -51,7 +52,7 @@ const Sidebar: FC<SidebarProps> = ({ sidebarOpen, toggleSidebar, toggleModal }) 
           </button>
         </div>
 
-        {!isAuthenticated && isLanding ? (
+        {isLanding ? (
           <ul className="flex flex-col items-center py-10">
             <li className="font-semibold text-[15px] cursor-pointer my-5">
               <Link
@@ -106,7 +107,7 @@ const Sidebar: FC<SidebarProps> = ({ sidebarOpen, toggleSidebar, toggleModal }) 
               </Link>
             </li>
           </ul>
-        ) : !isAuthenticated ? (
+        ) : (
           <div className="py-10">
             <ul className="flex flex-col items-center">
               {!isLanding && (
@@ -120,11 +121,23 @@ const Sidebar: FC<SidebarProps> = ({ sidebarOpen, toggleSidebar, toggleModal }) 
                   </LinkNavigate>
                 </li>
               )}
+              
+              {isAuthenticated && (
+                <li className="font-semibold text-[15px] cursor-pointer my-5">
+                  <LinkNavigate
+                    to="/my-services"
+                    onClick={() => toggleSidebar(false)}
+                    className="text-white px-[15px] py-[10px] transition-colors duration-300 hover:text-[#7620FF]"
+                  >
+                    Mis Servicios
+                  </LinkNavigate>
+                </li>
+              )}
             </ul>
           </div>
-        ) : null}
+        )}
         
-        <ul className={`flex flex-col items-center border-t border-gray-700 ${isAuthenticated ? 'py-10 mt-8' : 'py-5'}`}>
+        <ul className="flex flex-col items-center py-5 border-t border-gray-700">
           {!isAuthenticated ? (
             <>
               <li className="font-semibold text-[15px] cursor-pointer my-3">
@@ -184,4 +197,4 @@ const Sidebar: FC<SidebarProps> = ({ sidebarOpen, toggleSidebar, toggleModal }) 
   );
 };
 
-export default Sidebar;
+export default Sidebar; 

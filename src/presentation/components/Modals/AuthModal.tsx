@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
+import { useAuth } from "../../../context/AuthContext";
+import { useNavigate } from 'react-router-dom';
 
 interface AuthModalProps {
   open: boolean;
@@ -17,14 +19,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Estado interno sincronizado con defaultMode
   const [showPw, setShowPw] = useState(false);
   const [showPwRepeat, setShowPwRepeat] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [authStatus, setAuthStatus] = useState<string>('');
+  
+  // Usamos el contexto de autenticación y navegación
+  const { signInWithGoogle, isRegisteredUser, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (open) {
       setMode(defaultMode);
       setShowPw(false);
       setShowPwRepeat(false);
+      setErrorMessage(null);
+      setAuthStatus('');
     }
   }, [open, defaultMode, setMode]);
+
+  // Efecto para manejar la redirección después de autenticación exitosa
+  useEffect(() => {
+    // Solo redirigir si estamos autenticados y registrados en la base de datos
+    if (isAuthenticated && isRegisteredUser && isLoading) {
+      setAuthStatus('Autenticación exitosa. Redirigiendo...');
+      onClose(); // Cerrar el modal después del inicio de sesión exitoso
+      navigate('/my-services'); // Redirigir a la página de servicios
+      setIsLoading(false);
+    } 
+    // Si estamos autenticados pero no registrados, mostrar mensaje de espera
+    else if (isAuthenticated && !isRegisteredUser && isLoading) {
+      setAuthStatus('Completando el registro. Por favor espere...');
+    }
+  }, [isAuthenticated, isRegisteredUser, isLoading, navigate, onClose]);
 
   if (!open) return null;
 
@@ -49,6 +75,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       <>¿Ya tienes cuenta? <span className="text-[#7620ff] underline">Inicia sesión</span></>
     );
 
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsLoading(true);
+      setErrorMessage(null);
+      setAuthStatus('Iniciando proceso de autenticación con Google...');
+      
+      // Iniciar proceso de autenticación con Google
+      await signInWithGoogle();
+      
+      // No cerramos el modal ni navegamos aquí,
+      // esto lo hará el useEffect cuando detecte isAuthenticated y isRegisteredUser
+      
+    } catch (error) {
+      console.error("Error al iniciar sesión con Google:", error);
+      
+      setAuthStatus('Error de autenticación.');
+      setErrorMessage(
+        error instanceof Error 
+        ? error.message 
+        : "Hubo un problema al iniciar sesión. Por favor, inténtalo de nuevo más tarde."
+      );
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in" style={{ animationDuration: "1.8s" }}>
@@ -72,6 +122,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         <div className="text-gray-500 text-center text-base mb-6 leading-normal">
           {subtitle}
         </div>
+        
+        {/* Mensaje de error */}
+        {errorMessage && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+            {errorMessage}
+            {isAuthenticated && !isRegisteredUser && (
+              <div className="mt-2">
+                <button
+                  onClick={handleGoogleSignIn}
+                  className="text-blue-700 underline"
+                >
+                  Intentar de nuevo
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Estado de autenticación */}
+        {authStatus && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-sm">
+            {authStatus}
+          </div>
+        )}
+        
         {/* Formulario */}
         <form className="w-full flex flex-col gap-4">
           <div>
@@ -140,6 +215,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           >
             {mainButtonText}
           </button>
+          
         </form>
         {/* Acciones extra */}
         {isLogin && (
@@ -165,7 +241,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* Divider y botón Google */}
         <div className="flex items-center w-full my-1">
           <hr className="flex-1 border-gray-200" />
-          <span className="mx-3 text-gray-400 text-sm">O continuar con</span>
+          <span className="mx-3 text-gray-400 text-sm">Continuar con</span>
           <hr className="flex-1 border-gray-200" />
         </div>
         <div className="flex flex-row gap-3 justify-center mt-3">
@@ -173,9 +249,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             type="button"
             className="border-2 border-gray-200 rounded-xl p-3 hover:bg-gray-50 transition flex items-center gap-2 justify-center w-full"
             aria-label={googleButtonText}
+            onClick={handleGoogleSignIn}
+            disabled={isLoading}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917"/><path fill="#FF3D00" d="m6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.9 11.9 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917"/></svg>
-            <span className="font-semibold text-base text-[#7620ff]">{googleButtonText}</span>
+            <span className="font-semibold text-base text-[#7620ff]">
+              {isLoading ? "Procesando..." : googleButtonText}
+            </span>
           </button>
         </div>
       </div>

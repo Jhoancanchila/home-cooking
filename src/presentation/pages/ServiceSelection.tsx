@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LogoIcon from "../../assets/svg/Logo.jsx";
+import { User } from '../../core/entities/User';
+import { SaveUserData } from '../../core/use-cases/SaveUserData';
+import { SupabaseUserRepository } from '../../adapters/api/SupabaseUserRepository';
+import { SaveServiceData } from '../../core/use-cases/SaveServiceData';
+import { SupabaseServiceRepository } from '../../adapters/api/SupabaseServiceRepository';
+import { Service } from '../../core/entities/Service';
+
+// Inicializar el repositorio y el caso de uso
+const userRepository = new SupabaseUserRepository();
+const saveUserDataUseCase = new SaveUserData(userRepository);
+
+const serviceRepository = new SupabaseServiceRepository();
+const saveServiceDataUseCase = new SaveServiceData(serviceRepository);
 
 // Página de selección de servicios de chef
 const ServiceSelection: React.FC = () => {
@@ -208,6 +221,76 @@ const ServiceSelection: React.FC = () => {
         return false;
     }
   };
+
+  // Función para manejar la finalización del proceso
+  const handleFinish = async () => {
+    if (!canContinue()) return;
+    
+    // Preparar los datos del usuario para guardar
+    const userData: User = {
+      name: userName,
+      email: userEmail,
+      phone: userPhone,
+      source: userSource || undefined,
+    };
+    
+    try {
+      // Mostrar estado de carga
+      setIsSubmitting(true);
+      
+      // Guardar datos del usuario usando el caso de uso
+      const userResult = await saveUserDataUseCase.execute(userData);
+      
+      if (!userResult.success || !userResult.data) {
+        setSubmissionError(userResult.error || 'Ha ocurrido un error al guardar tus datos. Por favor, intenta nuevamente.');
+        console.error('Error al guardar datos del usuario:', userResult.error);
+        return;
+      }
+      
+      // Obtenemos el ID del usuario creado
+      const userId = userResult.data.id;
+      
+      // Verificar que el userId exista
+      if (!userId) {
+        setSubmissionError('Error al obtener el ID del usuario. Por favor, intenta nuevamente.');
+        return;
+      }
+      
+      // Preparar los datos del servicio para guardar
+      const serviceData: Service = {
+        user_id: userId,
+        service: selectedService || undefined,
+        occasion: selectedOccasion || undefined,
+        location: selectedLocation || undefined,
+        persons: selectedPersons || undefined,
+        meal_time: selectedMealTime || undefined,
+        cuisine: selectedCuisine || undefined,
+        event_date: selectedDate || undefined,
+        description: eventDescription || undefined,
+      };
+      
+      // Guardar datos del servicio
+      const serviceResult = await saveServiceDataUseCase.execute(serviceData);
+      
+      if (!serviceResult.success) {
+        setSubmissionError('Ha ocurrido un error al guardar los datos del servicio. Por favor, intenta nuevamente.');
+        console.error('Error al guardar datos del servicio:', serviceResult.error);
+        return;
+      }
+      
+      // Redirigir a página de éxito
+      navigate('/success');
+    } catch (err) {
+      console.error('Error en el proceso:', err);
+      setSubmissionError('Ha ocurrido un error inesperado. Por favor, intenta nuevamente.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Estados para el manejo del envío de datos
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   // Renderizar el contenido del paso actual
   const renderStepContent = () => {
@@ -1178,19 +1261,50 @@ const ServiceSelection: React.FC = () => {
           )}
           
           <div className="ml-auto">
-            <button
-              onClick={handleNext}
-              disabled={!canContinue()}
-              className={`px-8 py-3 rounded-full font-medium ${
-                !canContinue()
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-[#7620FF] text-white hover:bg-purple-700'
-              }`}
-            >
-              {currentStep === 10 ? 'Finalizar' : 'Continuar'}
-            </button>
+            {currentStep === 10 ? (
+              <button
+                onClick={handleFinish}
+                disabled={!canContinue() || isSubmitting}
+                className={`px-8 py-3 rounded-full font-medium flex items-center ${
+                  !canContinue() || isSubmitting
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-[#7620FF] text-white hover:bg-purple-700'
+                }`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Enviando...
+                  </>
+                ) : (
+                  'Finalizar'
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={handleNext}
+                disabled={!canContinue()}
+                className={`px-8 py-3 rounded-full font-medium ${
+                  !canContinue()
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-[#7620FF] text-white hover:bg-purple-700'
+                }`}
+              >
+                Continuar
+              </button>
+            )}
           </div>
         </div>
+        
+        {/* Mostrar mensaje de error si existe */}
+        {submissionError && (
+          <div className="mt-4 bg-red-50 border border-red-200 text-red-600 p-3 rounded-md text-center text-sm max-w-3xl mx-auto">
+            {submissionError}
+          </div>
+        )}
       </footer>
     </div>
   );
