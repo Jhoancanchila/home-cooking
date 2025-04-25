@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { SupabaseAuthService } from '../adapters/api/SupabaseAuthService';
-import { SupabaseUserProfileRepository } from '../adapters/api/SupabaseUserRepository';
+import { SupabaseUserProfileRepository } from '../adapters/api/SupabaseUserProfileRepository';
 import { ValidateUserAuth } from '../core/use-cases/ValidateUserAuth';
 import { UserProfile } from '../core/entities/User';
 
@@ -154,12 +154,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     userBeingSaved.current[userEmail] = true;
 
     try {
-      // Verificar si el usuario ya existe
+      // Primero verificar si el usuario existe por email en la tabla user_profile
+      const { data: existingUser } = await userProfileRepository.getUserProfileByEmail(userEmail);
+      
+      // Si el usuario existe en la tabla user_profile
+      if (existingUser) {
+        // Verificar si no tiene auth_id y actualizarlo si es necesario
+        if (!existingUser.auth_id && currentUser.id && existingUser.id) {
+          // Actualizar directamente con el repositorio en lugar de usar updateUserProfile
+          // ya que en este punto userData podría no estar establecido todavía
+          const { data, error } = await userProfileRepository.updateUserProfile(
+            existingUser.id,
+            { auth_id: currentUser.id }
+          );
+          
+          if (error) {
+            console.error('No se pudo actualizar el auth_id:', error.message);
+          } else if (data && data.length > 0) {
+            // Actualizar el estado con los datos actualizados
+            setUserData(data[0]);
+          }
+        }
+        
+        setIsRegisteredUser(true);
+        setUserData(existingUser);
+        return true;
+      }
+      
+      // Si el usuario no existe en user_profile, verificar si está registrado en el sistema de autenticación
       const userExists = await checkRegisteredUser(userEmail);
       
       if (!userExists) {
         // Crear un nuevo perfil de usuario con los datos disponibles
         const newUserProfile: UserProfile = {
+          auth_id: currentUser.id,
           name: currentUser.user_metadata?.full_name || `Usuario ${source}`,
           email: userEmail,
           phone: currentUser.user_metadata?.phone || '000-000-0000',
@@ -176,11 +204,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Actualizar el estado para reflejar que el usuario ahora está registrado
         setIsRegisteredUser(true);
+        
+        // Obtener los datos completos del usuario recién creado
+        await getUserProfile();
+        
         return true;
       }
       
       // Si el usuario ya existe, simplemente actualizar el estado
       setIsRegisteredUser(true);
+      
+      // Obtener los datos completos del usuario
+      await getUserProfile();
+      
       return true;
     } catch (err) {
       // Propagar el error para que pueda ser manejado adecuadamente
@@ -210,9 +246,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               try {
                 await safelyCreateUser(currentSession.user, 'Sesión Inicial');
                 initialSessionProcessed.current = true;
-                
-                // Obtener los datos completos del usuario
-                await getUserProfile();
+                // safelyCreateUser ya se encarga de obtener el perfil del usuario
               } catch (err) {
                 console.error('Error al procesar usuario en la sesión inicial:', err);
                 setError(err instanceof Error ? err.message : 'Error al procesar el usuario. Por favor, intenta nuevamente.');
@@ -240,9 +274,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (event === 'SIGNED_IN' && newSession?.user?.email) {
         try {
           await safelyCreateUser(newSession.user, 'Evento Auth');
-          
-          // Obtener los datos completos del usuario
-          await getUserProfile();
+          // safelyCreateUser ya se encarga de obtener el perfil y actualizar estados
         } catch (err) {
           console.error('Error al procesar usuario después de evento SIGNED_IN:', err);
           setError(err instanceof Error ? err.message : 'Error al procesar el usuario. Por favor, intenta nuevamente.');

@@ -5,5 +5,6 @@ export interface UserProfileRepository {
   saveUserProfile(userProfile: UserProfile): Promise<{ data: UserProfile[] | null; error: Error | null }>;
   findUserProfileByEmail(email: string): Promise<boolean>;
   getUserProfileByEmail(email: string): Promise<{ data: UserProfile | null; error: Error | null }>;
+  getUserProfileByAuthId(authId: string): Promise<{ data: UserProfile | null; error: Error | null }>;
   updateUserProfile(userId: string, userProfileData: Partial<UserProfile>): Promise<{ data: UserProfile[] | null; error: Error | null }>;
 } 

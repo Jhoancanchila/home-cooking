@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import LogoIcon from "../../assets/svg/Logo.jsx";
 import { UserProfile } from '../../core/entities/User';
 import { SaveUserData } from '../../core/use-cases/SaveUserData';
-import { SupabaseUserProfileRepository } from '../../adapters/api/SupabaseUserRepository';
+import { SupabaseUserProfileRepository } from '../../adapters/api/SupabaseUserProfileRepository';
 import { SaveServiceData } from '../../core/use-cases/SaveServiceData';
 import { SupabaseServiceRepository } from '../../adapters/api/SupabaseServiceRepository';
 import { Service } from '../../core/entities/Service';

@@ -43,7 +43,7 @@ export class SupabaseUserProfileRepository implements UserProfileRepository {
         .select('*')
         .eq('email', userProfile.email)
         .maybeSingle(); // Usar maybeSingle en lugar de single para evitar errores
-      
+        
       if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no se encontró ningún registro
         console.error('Error al verificar si el perfil de usuario existe:', checkError);
         if (checkError.code === '404' || checkError.message.includes('does not exist')) {
@@ -53,6 +53,7 @@ export class SupabaseUserProfileRepository implements UserProfileRepository {
       }
       
       if (existingUser) {
+        // Si existe un usuario pero no tiene auth_id, actualizarlo
         return { data: [existingUser], error: null };
       }
       
@@ -78,6 +79,7 @@ export class SupabaseUserProfileRepository implements UserProfileRepository {
             .maybeSingle();
             
           if (conflictUser) {
+            // Si existe un usuario pero no tiene auth_id, actualizarlo
             return { data: [conflictUser], error: null };
           }
           
@@ -135,6 +137,33 @@ export class SupabaseUserProfileRepository implements UserProfileRepository {
     }
   }
 
+  async getUserProfileByAuthId(authId: string) {
+    try {
+      if (!authId) {
+        return { data: null, error: new Error('ID de autenticación no proporcionado') };
+      }
+      
+      const { data, error } = await this.supabase
+        .from('user_profile')
+        .select('*')
+        .eq('auth_id', authId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error al obtener el perfil de usuario por auth_id:', error);
+        return { data: null, error };
+      }
+
+      return { data, error: null };
+    } catch (err) {
+      console.error('Excepción al obtener perfil de usuario por auth_id:', err);
+      return { 
+        data: null, 
+        error: err instanceof Error ? err : new Error('Error desconocido al obtener perfil de usuario') 
+      };
+    }
+  }
+
   async updateUserProfile(userId: string, userProfileData: Partial<UserProfile>) {
     try {
       if (!userId) {
@@ -146,6 +175,7 @@ export class SupabaseUserProfileRepository implements UserProfileRepository {
       
       if (userProfileData.name !== undefined) updateData.name = userProfileData.name;
       if (userProfileData.phone !== undefined) updateData.phone = userProfileData.phone;
+      if (userProfileData.auth_id !== undefined) updateData.auth_id = userProfileData.auth_id;
       
       const { data, error } = await this.supabase
         .from('user_profile')
