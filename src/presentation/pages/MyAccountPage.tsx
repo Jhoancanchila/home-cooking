@@ -250,7 +250,7 @@ const MyAccountPage: React.FC = () => {
                   
                   <button
                     type="button"
-                    onClick={() => navigate(-1)}
+                    onClick={() => navigate('/my-services')}
                     className="w-full mt-3 py-2 px-4 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors"
                   >
                     Volver

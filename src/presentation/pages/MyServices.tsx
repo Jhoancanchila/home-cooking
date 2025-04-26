@@ -65,7 +65,19 @@ const MyServices: React.FC = () => {
       <TopNavbar />
       
       <div className="flex-1 max-w-7xl mx-auto w-full px-6 py-8 mt-[80px]">
-        <h1 className="text-3xl font-bold mb-8">Mis servicios</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">Mis servicios</h1>
+          <button 
+            onClick={() => navigate('/preferences')}
+            className="bg-[#7620FF] hover:bg-[#6010e0] text-white font-medium py-2 px-6 rounded-full flex items-center gap-2 transition duration-300"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span className="inline"> servicio</span>
+          </button>
+        </div>
         
         {isLoading ? (
           <div className="flex justify-center items-center h-64">

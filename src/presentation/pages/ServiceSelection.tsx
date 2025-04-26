@@ -7,6 +7,7 @@ import { SupabaseUserProfileRepository } from '../../adapters/api/SupabaseUserPr
 import { SaveServiceData } from '../../core/use-cases/SaveServiceData';
 import { SupabaseServiceRepository } from '../../adapters/api/SupabaseServiceRepository';
 import { Service } from '../../core/entities/Service';
+import { useAuth } from '../../context/AuthContext';
 
 // Inicializar el repositorio y el caso de uso
 const userRepository = new SupabaseUserProfileRepository();
@@ -18,6 +19,7 @@ const saveServiceDataUseCase = new SaveServiceData(serviceRepository);
 // Página de selección de servicios de chef
 const ServiceSelection: React.FC = () => {
   const navigate = useNavigate();
+  const { isAuthenticated, user, userData } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
@@ -127,9 +129,18 @@ const ServiceSelection: React.FC = () => {
     return `${day} de ${monthNames[month]} de ${year}`;
   };
   
+  // Establecer datos del usuario si está autenticado
+  useEffect(() => {
+    if (isAuthenticated && userData) {
+      setUserName(userData.name || '');
+      setUserEmail(userData.email || '');
+      setUserPhone(userData.phone || '');
+    }
+  }, [isAuthenticated, userData]);
+
   // Función para avanzar al siguiente paso
   const handleNext = () => {
-    setCurrentStep(currentStep + 1);
+    setCurrentStep(getNextStep(currentStep));
   };
 
   // Función para seleccionar un servicio
@@ -210,8 +221,16 @@ const ServiceSelection: React.FC = () => {
       case 8:
         return true; // Descripción, es opcional
       case 9:
+        // Si está autenticado, ya tenemos los datos del usuario
+        if (isAuthenticated && userData) {
+          return true;
+        }
         return true; // Resumen, siempre puede continuar
       case 10:
+        // Si está autenticado, ya tenemos los datos del usuario
+        if (isAuthenticated && userData) {
+          return true;
+        }
         // Validar campos obligatorios de contacto
         return userName.trim() !== '' && 
                userEmail.trim() !== '' && 
@@ -226,39 +245,38 @@ const ServiceSelection: React.FC = () => {
   const handleFinish = async () => {
     if (!canContinue()) return;
     
-    // Preparar los datos del usuario para guardar
-    const userData: UserProfile = {
-      name: userName,
-      email: userEmail,
-      phone: userPhone,
-      source: userSource || undefined,
-    };
-    
     try {
       // Mostrar estado de carga
       setIsSubmitting(true);
       
-      // Guardar datos del usuario usando el caso de uso
-      const userResult = await saveUserDataUseCase.execute(userData);
+      let userId: string | undefined;
       
-      if (!userResult.success || !userResult.data) {
-        setSubmissionError(userResult.error || 'Ha ocurrido un error al guardar tus datos. Por favor, intenta nuevamente.');
-        console.error('Error al guardar datos del usuario:', userResult.error);
-        return;
-      }
-      
-      // Obtenemos el ID del usuario creado
-      const userId = userResult.data.id;
-      
-      // Verificar que el userId exista
-      if (!userId) {
-        setSubmissionError('Error al obtener el ID del usuario. Por favor, intenta nuevamente.');
-        return;
+      // Si el usuario está autenticado, usamos su ID existente
+      if (isAuthenticated && user && userData && userData.id) {
+        userId = userData.id;
+      } else {
+        // Si no está autenticado, guardamos los nuevos datos de usuario
+        const newUserData: UserProfile = {
+          name: userName,
+          email: userEmail,
+          phone: userPhone,
+          source: userSource || undefined,
+        };
+        
+        // Guardar datos del usuario usando el caso de uso
+        const userResult = await saveUserDataUseCase.execute(newUserData);
+        
+        if (!userResult.success || !userResult.data) {
+          setSubmissionError(userResult.error || 'Ha ocurrido un error al guardar tus datos. Por favor, intenta nuevamente.');
+          console.error('Error al guardar datos del usuario:', userResult.error);
+          return;
+        }
+        
       }
       
       // Preparar los datos del servicio para guardar
       const serviceData: Service = {
-        user_id: userId,
+        user_id: user?.id || '',  // Asegurar que siempre sea string
         service: selectedService || undefined,
         occasion: selectedOccasion || undefined,
         location: selectedLocation || undefined,
@@ -278,8 +296,12 @@ const ServiceSelection: React.FC = () => {
         return;
       }
       
-      // Redirigir a página de éxito
-      navigate('/success');
+      // Redirigir a página de éxito o a mis servicios si está autenticado
+      if (isAuthenticated) {
+        navigate('/my-services');
+      } else {
+        navigate('/success');
+      }
     } catch (err) {
       console.error('Error en el proceso:', err);
       setSubmissionError('Ha ocurrido un error inesperado. Por favor, intenta nuevamente.');
@@ -292,8 +314,51 @@ const ServiceSelection: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
 
+  // Determinar si debemos omitir el paso de información de usuario
+  const getNextStep = (currentStep: number) => {
+    // Si estamos en el paso 9 (resumen) y el usuario está autenticado, saltamos al final
+    if (currentStep === 9 && isAuthenticated && userData) {
+      return 11; // Un paso después del último (11 = finalizar)
+    }
+    return currentStep + 1;
+  };
+
   // Renderizar el contenido del paso actual
   const renderStepContent = () => {
+    // Si estamos en el paso 10 (datos de contacto) y el usuario está autenticado, mostrar un mensaje
+    if (currentStep === 10 && isAuthenticated && userData) {
+      return (
+        <div className="max-w-3xl mx-auto">
+          <h1 className="text-3xl md:text-4xl font-bold text-center mb-4">
+            ¡Ya está!
+          </h1>
+          <p className="text-center text-gray-600 mb-10">
+            Como ya tienes una cuenta con nosotros, utilizaremos tus datos existentes. 
+            Haz clic en Finalizar para confirmar tu servicio.
+          </p>
+          
+          <div className="bg-white rounded-xl p-8 shadow-md my-8">
+            <h2 className="text-xl font-semibold mb-4">Tus datos de contacto</h2>
+            <div className="space-y-4">
+              <div>
+                <p className="text-gray-500 text-sm">Nombre</p>
+                <p className="font-medium">{userData.name}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-sm">Email</p>
+                <p className="font-medium">{userData.email}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-sm">Teléfono</p>
+                <p className="font-medium">{userData.phone}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // Resto de casos normales
     switch (currentStep) {
       case 1:
         return (
@@ -1193,7 +1258,7 @@ const ServiceSelection: React.FC = () => {
             </div>
           </div>
         );
-        
+      
       default:
         return null;
     }
@@ -1261,7 +1326,7 @@ const ServiceSelection: React.FC = () => {
           )}
           
           <div className="ml-auto">
-            {currentStep === 10 ? (
+            {currentStep === 10 || (currentStep === 9 && isAuthenticated && userData) ? (
               <button
                 onClick={handleFinish}
                 disabled={!canContinue() || isSubmitting}
@@ -1277,10 +1342,10 @@ const ServiceSelection: React.FC = () => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Enviando...
+                    Guardando...
                   </>
                 ) : (
-                  'Finalizar'
+                  isAuthenticated ? "Guardar servicio" : "Finalizar"
                 )}
               </button>
             ) : (
