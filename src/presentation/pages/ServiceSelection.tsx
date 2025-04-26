@@ -257,9 +257,9 @@ const ServiceSelection: React.FC = () => {
       } else {
         // Si no está autenticado, guardamos los nuevos datos de usuario
         const newUserData: UserProfile = {
-          name: userName,
-          email: userEmail,
-          phone: userPhone,
+          name: userName.trim(),
+          email: userEmail.trim(),
+          phone: userPhone.trim(),
           source: userSource || undefined,
         };
         
@@ -276,7 +276,7 @@ const ServiceSelection: React.FC = () => {
       
       // Preparar los datos del servicio para guardar
       const serviceData: Service = {
-        user_id: user?.id || '',  // Asegurar que siempre sea string
+        user_email: isAuthenticated && userData ? userData.email : userEmail,
         service: selectedService || undefined,
         occasion: selectedOccasion || undefined,
         location: selectedLocation || undefined,

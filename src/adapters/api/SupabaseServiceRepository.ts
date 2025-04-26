@@ -41,12 +41,12 @@ export class SupabaseServiceRepository implements ServiceRepository {
     }
   }
 
-  async findServicesByUserId(userId: string): Promise<Service[]> {
+  async findServicesByUserEmail(userEmail: string): Promise<Service[]> {
     try {
       const { data, error } = await this.supabase
         .from('services')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_email', userEmail);
       
       if (error) {
         console.error('Error fetching services:', error);
