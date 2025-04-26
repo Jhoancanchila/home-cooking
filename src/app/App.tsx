@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 // Screens
 import { Landing, ServiceSelection, SuccessPage, MyServices, NotFoundPage, MyAccountPage } from "../presentation/pages";
+import EditService from "../presentation/pages/EditService";
 // Context
 import { AuthProvider } from "../context/AuthContext";
 
@@ -22,6 +23,7 @@ const App: FC = () => {
             <Route path="/success" element={<SuccessPage />} />
             <Route path="/my-services" element={<MyServices />} />
             <Route path="/my-account" element={<MyAccountPage />} />
+            <Route path="/edit-service/:serviceId" element={<EditService />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Router>

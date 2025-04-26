@@ -13,7 +13,6 @@ export class SupabaseServiceRepository implements ServiceRepository {
   }
 
   async saveService(serviceData: Service) {
-    console.log("🚀 ~ SupabaseServiceRepository ~ saveService ~ serviceData:", serviceData);
     try {
       const { data, error } = await this.supabase
         .from('services')
@@ -63,6 +62,52 @@ export class SupabaseServiceRepository implements ServiceRepository {
     } catch (err) {
       console.error('Excepción al buscar servicios:', err);
       return [];
+    }
+  }
+
+  async updateService(serviceId: string, serviceData: Partial<Service>) {
+    try {
+      const { data, error } = await this.supabase
+        .from('services')
+        .update(serviceData)
+        .eq('id', serviceId)
+        .select();
+
+      if (error) {
+        console.error('Error al actualizar el servicio:', error);
+        throw new Error('Error al actualizar el servicio: ' + error.message);
+      }
+
+      return { data, error: null };
+    } catch (err) {
+      console.error('Excepción al actualizar servicio:', err);
+      return { 
+        data: null, 
+        error: err instanceof Error ? err : new Error('Error desconocido al actualizar servicio') 
+      };
+    }
+  }
+
+  async getServiceById(serviceId: string) {
+    try {
+      const { data, error } = await this.supabase
+        .from('services')
+        .select('*')
+        .eq('id', serviceId)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error al obtener el servicio por ID:', error);
+        return { data: null, error };
+      }
+      
+      return { data, error: null };
+    } catch (err) {
+      console.error('Excepción al obtener servicio por ID:', err);
+      return { 
+        data: null, 
+        error: err instanceof Error ? err : new Error('Error desconocido al obtener servicio') 
+      };
     }
   }
 } 

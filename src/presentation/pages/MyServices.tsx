@@ -140,6 +140,7 @@ const MyServices: React.FC = () => {
                       <div className="flex space-x-2">
                         {/* Botón de editar */}
                         <button 
+                          onClick={() => navigate(`/edit-service/${service.id}`)}
                           className="text-gray-400 hover:text-gray-600 transition-colors"
                           aria-label="Editar servicio"
                         >
