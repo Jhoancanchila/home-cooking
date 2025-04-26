@@ -4,14 +4,20 @@ import { useAuth } from '../../context/AuthContext';
 import TopNavbar from '../components/Navbar/TopNavbar';
 import { Service } from '../../core/entities/Service';
 import { SupabaseServiceRepository } from '../../adapters/api/SupabaseServiceRepository';
+import { DeactivateService } from '../../core/use-cases/DeactivateService';
+import DeleteServiceModal from '../components/DeleteServiceModal';
 
 const serviceRepository = new SupabaseServiceRepository();
+const deactivateServiceUseCase = new DeactivateService(serviceRepository);
 
 const MyServices: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, loading } = useAuth();
   const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     // Redirigir si no está autenticado
@@ -20,23 +26,25 @@ const MyServices: React.FC = () => {
     }
   }, [isAuthenticated, loading, navigate]);
 
-  useEffect(() => {
-    const fetchUserServices = async () => {
-      if (user?.id) {
-        try {
-          setIsLoading(true);
-          const userServices = await serviceRepository.findServicesByUserEmail(user.email || '');
-          setServices(userServices);
-        } catch (error) {
-          console.error('Error al obtener los servicios:', error);
-        } finally {
-          setIsLoading(false);
-        }
-      } else {
+  const fetchUserServices = async () => {
+    if (user?.email) {
+      try {
+        setIsLoading(true);
+        setErrorMessage(null);
+        const userServices = await serviceRepository.findServicesByUserEmail(user.email);
+        setServices(userServices);
+      } catch (error) {
+        console.error('Error al obtener los servicios:', error);
+        setErrorMessage('No se pudieron cargar los servicios. Por favor, intenta de nuevo.');
+      } finally {
         setIsLoading(false);
       }
-    };
+    } else {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     if (isAuthenticated && user) {
       fetchUserServices();
     }
@@ -78,6 +86,41 @@ const MyServices: React.FC = () => {
     return "La solicitud ha caducado. Caducada el 25/04/2025";
   };
 
+  // Función para mostrar el modal de eliminación
+  const handleDeleteClick = (service: Service) => {
+    setServiceToDelete(service);
+  };
+
+  // Función para cerrar el modal
+  const handleCloseModal = () => {
+    setServiceToDelete(null);
+  };
+
+  // Función para confirmar la eliminación
+  const handleConfirmDelete = async () => {
+    if (!serviceToDelete || !serviceToDelete.id) return;
+
+    try {
+      setIsDeleting(true);
+      setErrorMessage(null);
+      
+      const result = await deactivateServiceUseCase.execute(serviceToDelete.id);
+      
+      if (result.success) {
+        // Actualizar la lista de servicios
+        await fetchUserServices();
+      } else {
+        setErrorMessage(`Error al eliminar el servicio: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error al eliminar el servicio:', error);
+      setErrorMessage('Ocurrió un error inesperado al eliminar el servicio.');
+    } finally {
+      setIsDeleting(false);
+      setServiceToDelete(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <TopNavbar />
@@ -98,6 +141,19 @@ const MyServices: React.FC = () => {
             </button>
           )}
         </div>
+        
+        {/* Mensaje de error */}
+        {errorMessage && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 text-red-600">
+            {errorMessage}
+            <button 
+              className="ml-2 underline text-red-700"
+              onClick={fetchUserServices}
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
         
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
@@ -151,6 +207,7 @@ const MyServices: React.FC = () => {
                         </button>
                         {/* Botón de eliminar */}
                         <button 
+                          onClick={() => handleDeleteClick(service)}
                           className="text-gray-400 hover:text-gray-600 transition-colors"
                           aria-label="Eliminar servicio"
                         >
@@ -207,6 +264,14 @@ const MyServices: React.FC = () => {
           </div>
         )}
       </div>
+      
+      {/* Modal de confirmación para eliminar */}
+      <DeleteServiceModal 
+        isOpen={!!serviceToDelete}
+        onClose={handleCloseModal}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
+      />
     </div>
   );
 };

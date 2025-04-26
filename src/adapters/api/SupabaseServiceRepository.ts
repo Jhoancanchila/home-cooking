@@ -45,7 +45,8 @@ export class SupabaseServiceRepository implements ServiceRepository {
       const { data, error } = await this.supabase
         .from('services')
         .select('*')
-        .eq('user_email', userEmail);
+        .eq('user_email', userEmail)
+        .eq('active', true);
       
       if (error) {
         console.error('Error fetching services:', error);
@@ -107,6 +108,28 @@ export class SupabaseServiceRepository implements ServiceRepository {
       return { 
         data: null, 
         error: err instanceof Error ? err : new Error('Error desconocido al obtener servicio') 
+      };
+    }
+  }
+
+  async deactivateService(serviceId: string): Promise<{ success: boolean; error: Error | null }> {
+    try {
+      const { error } = await this.supabase
+        .from('services')
+        .update({ active: false })
+        .eq('id', serviceId);
+
+      if (error) {
+        console.error('Error al desactivar el servicio:', error);
+        return { success: false, error };
+      }
+
+      return { success: true, error: null };
+    } catch (err) {
+      console.error('Excepción al desactivar servicio:', err);
+      return { 
+        success: false, 
+        error: err instanceof Error ? err : new Error('Error desconocido al desactivar servicio') 
       };
     }
   }

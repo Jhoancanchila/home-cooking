@@ -5,4 +5,5 @@ export interface ServiceRepository {
   findServicesByUserEmail(userEmail: string): Promise<Service[]>;
   updateService(serviceId: string, serviceData: Partial<Service>): Promise<{ data: Service[] | null; error: Error | null }>;
   getServiceById(serviceId: string): Promise<{ data: Service | null; error: Error | null }>;
+  deactivateService(serviceId: string): Promise<{ success: boolean; error: Error | null }>;
 } 

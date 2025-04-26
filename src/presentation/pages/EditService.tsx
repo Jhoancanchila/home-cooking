@@ -13,7 +13,7 @@ const updateServiceDataUseCase = new UpdateServiceData(serviceRepository);
 const EditService: React.FC = () => {
   const { serviceId } = useParams<{ serviceId: string }>();
   const navigate = useNavigate();
-  const { user, isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   
   // Estado para almacenar los datos del servicio
   const [service, setService] = useState<Service | null>(null);
