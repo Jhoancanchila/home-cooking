@@ -19,12 +19,13 @@ const MyServices: React.FC = () => {
       navigate('/');
     }
   }, [isAuthenticated, loading, navigate]);
+
   useEffect(() => {
     const fetchUserServices = async () => {
       if (user?.id) {
         try {
           setIsLoading(true);
-          const userServices = await serviceRepository.findServicesByUserEmail(user?.email || '');
+          const userServices = await serviceRepository.findServicesByUserEmail(user.email || '');
           setServices(userServices);
         } catch (error) {
           console.error('Error al obtener los servicios:', error);
@@ -41,22 +42,40 @@ const MyServices: React.FC = () => {
     }
   }, [isAuthenticated, user]);
 
-  // Función para formatear la fecha
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '';
-    return dateString;
+  // Función para formatear el precio basado en el número de personas
+  const formatPrice = (persons?: string) => {
+    if (!persons) return 'US$ 35 - US$ 50';
+    
+    if (persons === '2') return 'US$ 35 - US$ 50';
+    if (persons === '3-6') return 'US$ 30 - US$ 45';
+    if (persons === '7-12') return 'US$ 25 - US$ 40';
+    if (persons === '13+') return 'US$ 25 - US$ 40';
+    
+    return 'US$ 35 - US$ 50';
   };
 
-  // Función para formatear el precio
-  const formatPrice = (persons?: string) => {
-    if (!persons) return 'USD 35 - USD 50';
+  // Funciones para determinar el estado y horario del servicio
+  const getServiceStatus = () => {
+    // Aquí podrías implementar lógica real para determinar el estado
+    // De momento, simplemente asignamos "CANCELADA" como demo
+    return "CANCELADA";
+  };
+
+  const getMealTime = (mealTime?: string) => {
+    if (!mealTime) return 'Cena';
     
-    if (persons === '2') return 'USD 35 - USD 50';
-    if (persons === '3-6') return 'USD 30 - USD 45';
-    if (persons === '7-12') return 'USD 25 - USD 40';
-    if (persons === '13+') return 'USD 25 - USD 40';
+    if (mealTime === 'almuerzo') return 'Almuerzo';
+    if (mealTime === 'onces') return 'Onces';
+    if (mealTime === 'cena') return 'Cena';
     
-    return 'USD 35 - USD 50';
+    return 'Cena';
+  };
+
+  // Función que devuelve el mensaje de caducidad
+  const getExpirationMessage = () => {
+    // Aquí podrías implementar lógica real para mostrar mensajes de caducidad
+    // De momento, mostramos un mensaje fijo para la demo
+    return "La solicitud ha caducado. Caducada el 25/04/2025";
   };
 
   return (
@@ -98,54 +117,92 @@ const MyServices: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div className="space-y-6">
-            {services.map((service) => (
-              <div key={service.id} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="text-sm font-medium text-amber-600 mb-2">
-                      EN PROCESO
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {services.map((service) => {
+              // Valores simulados para el diseño de demostración
+              const serviceType = service.service === 'único' ? 'Servicio único' : 
+                                   service.service === 'virtual' ? 'Servicio cocina virtual' : 
+                                   'Servicio de recetas';
+              const formattedDate = "25 abr 2025";
+              const mealType = getMealTime(service.meal_time);
+              const status = getServiceStatus();
+              const expirationMessage = getExpirationMessage();
+              const price = formatPrice(service.persons);
+              
+              return (
+                <div key={service.id} className="bg-white rounded-xl overflow-hidden shadow border border-gray-100">
+                  {/* Cabecera con estado y título */}
+                  <div className="p-6">
+                    <div className="flex justify-between items-start">
+                      <div className="text-sm font-semibold text-red-500 mb-2">
+                        {status}
+                      </div>
+                      <div className="flex space-x-2">
+                        {/* Botón de editar */}
+                        <button 
+                          className="text-gray-400 hover:text-gray-600 transition-colors"
+                          aria-label="Editar servicio"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                          </svg>
+                        </button>
+                        {/* Botón de eliminar */}
+                        <button 
+                          className="text-gray-400 hover:text-gray-600 transition-colors"
+                          aria-label="Eliminar servicio"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          </svg>
+                        </button>
+                      </div>
                     </div>
-                    <h2 className="text-xl font-bold">
-                      {service.service === 'único' ? 'Servicio único' : 
-                       service.service === 'virtual' ? 'Servicio cocina virtual' : 
-                       'Servicio de recetas'}
+                    <h2 className="text-xl font-bold text-gray-800">
+                      {serviceType}
                     </h2>
                     <p className="text-gray-600 mt-1">
-                      {formatDate(service.event_date)} · {formatPrice(service.persons)}
+                      {formattedDate} · {mealType} · {price}
+                    </p>
+                    
+                    {/* Detalles del servicio */}
+                    <div className="mt-6 space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Personas</span>
+                        <span className="font-medium text-gray-800">{service.persons || '2 personas'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Menú</span>
+                        <span className="font-medium text-gray-800">{service.cuisine || 'Local'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Ocasión</span>
+                        <span className="font-medium text-gray-800">{service.occasion || 'Cumpleaños'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Lugar</span>
+                        <span className="font-medium text-gray-800">{service.location || 'No especificado'}</span>
+                      </div>
+                      
+                      {/* Campo adicional para propuestas */}
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Propuestas</span>
+                        <span className="font-medium text-gray-800">Tienes 3 propuestas</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Mensaje de caducidad en una sección separada */}
+                  <div className="border-t border-gray-100 p-4">
+                    <p className="text-sm text-gray-600">
+                      {expirationMessage}
                     </p>
                   </div>
-                  <button 
-                    className="text-gray-400 hover:text-gray-600"
-                    aria-label="Eliminar servicio"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="3 6 5 6 21 6"></polyline>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    </svg>
-                  </button>
                 </div>
-
-                <div className="mt-6 grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Personas</p>
-                    <p className="font-medium">{service.persons || '2 personas'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Menú</p>
-                    <p className="font-medium">{service.cuisine || 'Local'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Ocasión</p>
-                    <p className="font-medium">{service.occasion || 'Cumpleaños'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Lugar</p>
-                    <p className="font-medium">{service.location || 'No especificado'}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
