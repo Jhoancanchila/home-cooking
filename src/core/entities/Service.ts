@@ -11,4 +11,5 @@ export interface Service {
   event_date?: string;
   description?: string;
   created_at?: string;
+  active?: boolean;
 } 

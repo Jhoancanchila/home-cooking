@@ -285,6 +285,7 @@ const ServiceSelection: React.FC = () => {
         cuisine: selectedCuisine || undefined,
         event_date: selectedDate || undefined,
         description: eventDescription || undefined,
+        active: true,
       };
       
       // Guardar datos del servicio
