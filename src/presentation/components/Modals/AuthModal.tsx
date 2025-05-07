@@ -24,7 +24,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [authStatus, setAuthStatus] = useState<string>('');
   
   // Usamos el contexto de autenticación y navegación
-  const { signInWithGoogle, isRegisteredUser, isAuthenticated } = useAuth();
+  const { signInWithGoogle, signUpWithEmail, isRegisteredUser, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -100,6 +100,52 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
+  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setErrorMessage(null);
+    const form = e.currentTarget as HTMLFormElement;
+    const formData = new FormData(form);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const passwordRepeat = formData.get("passwordRepeat") as string;
+    const isValidEmail = /\S+@\S+\.\S+/.test(email);
+    const isValidPassword = password.length >= 6;
+    const isValidPasswordRepeat = password === passwordRepeat;
+    if (!isValidEmail) {
+      setErrorMessage("Por favor, introduce un email válido.");
+      setIsLoading(false);
+      return;
+    }
+    if (!isValidPassword) {
+      setErrorMessage("La contraseña debe tener al menos 6 caracteres.");
+      setIsLoading(false);
+      return;
+    }
+    if (!isValidPasswordRepeat) {
+      setErrorMessage("Las contraseñas no coinciden.");
+      setIsLoading(false);
+      return;
+    }
+    
+    setAuthStatus('Registrando cuenta...');
+    try {
+      // Aquí iría la lógica para registrar al usuario
+      // Por ejemplo, llamar a un servicio de autenticación
+      await signUpWithEmail(email, password);
+      setAuthStatus('Registro exitoso. Redirigiendo...');
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error 
+        ? error.message 
+        : "Hubo un problema al registrarte. Por favor, inténtalo de nuevo más tarde."
+      );
+    } finally {
+      setIsLoading(false);
+      setAuthStatus('');
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in" style={{ animationDuration: "1.8s" }}>
       <div className="relative bg-white rounded-3xl shadow-lg max-w-md w-[90vw] px-8 py-8 pt-10 flex flex-col items-stretch animate-slide-in-top"
@@ -148,10 +194,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         )}
         
         {/* Formulario */}
-        <form className="w-full flex flex-col gap-4">
+        <form className="w-full flex flex-col gap-4" onSubmit={isLogin ? undefined : handleSignUp}>
           <div>
             <input
               type="email"
+              name="email"
               required
               className="w-full rounded-xl border-2 border-gray-200 px-5 py-3 text-base outline-none focus:border-[#7620ff] transition shadow-sm"
               placeholder="Email *"
@@ -161,6 +208,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div className="relative">
             <input
               type={showPw ? "text" : "password"}
+              name="password"
               required
               className="w-full rounded-xl border-2 border-gray-200 px-5 py-3 text-base outline-none focus:border-[#7620ff] transition shadow-sm pr-11"
               placeholder="Contraseña *"
@@ -188,6 +236,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <input
                 type={showPwRepeat ? "text" : "password"}
                 required
+                name="passwordRepeat"
                 className="w-full rounded-xl border-2 border-gray-200 px-5 py-3 text-base outline-none focus:border-[#7620ff] transition shadow-sm pr-11"
                 placeholder="Repite la contraseña *"
                 autoComplete="new-password"
@@ -212,8 +261,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <button
             type="submit"
             className="bg-[#7620ff] hover:bg-[#6510e6] transition font-semibold rounded-xl py-3 mt-2 text-white text-base shadow-inner"
+            disabled={isLoading}
+            aria-label={mainButtonText}
           >
-            {mainButtonText}
+            {isLoading ? "Procesando..." : mainButtonText}
           </button>
           
         </form>

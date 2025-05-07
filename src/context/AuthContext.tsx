@@ -14,10 +14,12 @@ interface AuthContextType {
   error: string | null;
   isAuthenticated: boolean;
   isRegisteredUser: boolean;
+  setIsRegisteredUser: React.Dispatch<React.SetStateAction<boolean>>; // Para actualizar el estado de isRegisteredUser
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   updateUserProfile: (userData: Partial<UserProfile>) => Promise<{ success: boolean; error: string | null }>;
   getUserProfile: () => Promise<{ success: boolean; data: UserProfile | null; error: string | null }>;
+  signUpWithEmail: ( email: string, password: string)=> Promise<void>;
 }
 
 // Crear el contexto
@@ -317,6 +319,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const signUpWithEmail = async (email: string, password: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const isRegister = await checkRegisteredUser(email);
+      if (isRegister) {
+        setIsRegisteredUser(false);
+        throw new Error('El email ya está registrado. Por favor, intenta con otro.');
+      }
+      
+      const { error } = await authService.signUpWithEmail(email, password);
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Enviar un correo de verificación al usuario
+
+
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al registrar con email. Por favor, intenta nuevamente.');
+      throw new Error(`${err}`);
+    }
+    finally {
+      setLoading(false);
+    }
+  }
+
   // Cerrar sesión
   const signOut = async () => {
     try {
@@ -334,7 +365,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Reseteamos el control de sesión inicial
       initialSessionProcessed.current = false;
     } catch (err: unknown) {
-      console.error('Error al cerrar sesión:', err);
       setError(err instanceof Error ? err.message : 'Error al cerrar sesión. Por favor, intenta nuevamente.');
       throw new Error('Error al cerrar sesión. Por favor, intenta nuevamente.');
     } finally {
@@ -350,10 +380,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     error,
     isAuthenticated: !!session,
     isRegisteredUser,
+    setIsRegisteredUser,
     signInWithGoogle,
     signOut,
     updateUserProfile,
-    getUserProfile
+    getUserProfile,
+    signUpWithEmail
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

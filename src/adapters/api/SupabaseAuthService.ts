@@ -1,5 +1,5 @@
 import { AuthService } from '../../core/ports/AuthService';
-import { createClient, SupabaseClient, Session } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, Session, AuthError } from '@supabase/supabase-js';
 
 export class SupabaseAuthService implements AuthService {
   private supabase: SupabaseClient;
@@ -9,6 +9,12 @@ export class SupabaseAuthService implements AuthService {
     const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
     
     this.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+  signUpWithEmail(email: string, password: string): Promise<{ error: AuthError | null; }> {
+    return this.supabase.auth.signUp({
+      email,
+      password
+    });
   }
 
   async signInWithGoogle() {
