@@ -9,6 +9,7 @@ import { SupabaseServiceRepository } from '../../adapters/api/SupabaseServiceRep
 import { Service } from '../../core/entities/Service';
 import { useAuth } from '../../context/AuthContext';
 
+
 // Inicializar el repositorio y el caso de uso
 const userRepository = new SupabaseUserProfileRepository();
 const saveUserDataUseCase = new SaveUserData(userRepository);
@@ -249,11 +250,11 @@ const ServiceSelection: React.FC = () => {
       // Mostrar estado de carga
       setIsSubmitting(true);
       
-      let userId: string | undefined;
+      // let userId: string | undefined; // Variable no utilizada actualmente
       
       // Si el usuario está autenticado, usamos su ID existente
-      if (isAuthenticated && user && userData && userData.id) {
-        userId = userData.id;
+      if (isAuthenticated && user && userData?.id) {
+        // userId = userData.id; // Actualmente no se usa esta variable
       } else {
         // Si no está autenticado, guardamos los nuevos datos de usuario
         const newUserData: UserProfile = {
@@ -265,6 +266,7 @@ const ServiceSelection: React.FC = () => {
         
         // Guardar datos del usuario usando el caso de uso
         const userResult = await saveUserDataUseCase.execute(newUserData);
+        console.log("🚀 ~ handleFinish ~ userResult:", userResult)
         
         if (!userResult.success || !userResult.data) {
           setSubmissionError(userResult.error || 'Ha ocurrido un error al guardar tus datos. Por favor, intenta nuevamente.');

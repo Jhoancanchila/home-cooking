@@ -8,3 +8,9 @@ export interface UserProfile {
   source?: string;
   created_at?: string;
 } 
+
+// Definición de tipos para la información de autenticación del usuario
+export interface UserAuthInfo {
+  //provider es de tipo array de strings para permitir múltiples proveedores
+  provider: string[]; // Proveedor de autenticación (email, google, etc.)
+}

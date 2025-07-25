@@ -10,6 +10,12 @@ export class SupabaseAuthService implements AuthService {
     
     this.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
+  async signInWithEmail(email: string, password: string): Promise<{ error: AuthError | null }> {
+    return this.supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+  }
   signUpWithEmail(email: string, password: string): Promise<{ error: AuthError | null; }> {
     return this.supabase.auth.signUp({
       email,

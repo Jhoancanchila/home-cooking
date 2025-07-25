@@ -1,5 +1,5 @@
 import { UserProfileRepository } from '../../core/ports/UserRepository';
-import { UserProfile } from '../../core/entities/User';
+import { UserProfile, UserAuthInfo } from '../../core/entities/User';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 export class SupabaseUserProfileRepository implements UserProfileRepository {
@@ -28,6 +28,7 @@ export class SupabaseUserProfileRepository implements UserProfileRepository {
       if (this.userCheckInProgress[userProfile.email]) {
         // Verificar si el usuario ya existe después del tiempo de espera
         const exists = await this.findUserProfileByEmail(userProfile.email);
+        console.log("🚀 ~ SupabaseUserProfileRepository ~ saveUserProfile ~ exists:", exists)
         if (exists) {
           return { data: [{...userProfile, id: 'existing-user'}], error: null };
         }
@@ -203,30 +204,39 @@ export class SupabaseUserProfileRepository implements UserProfileRepository {
       if (!email) {
         return false;
       }
-      
-      const { data, error } = await this.supabase
-        .from('user_profile')
-        .select('email')
-        .eq('email', email);
 
-      // Manejamos el error de forma genérica
+      const { data, error } = await this.supabase.rpc('verificar_usuario_existe', { email_input: email });
       if (error) {
-        console.error('Error al verificar el email:', error);
-        
-        // Comprobar si el error es de tipo 404 (tabla no existe)
-        if (error.code === '404' || error.message.includes('does not exist')) {
-          console.error('La tabla "user_profile" no existe en la base de datos.');
-        }
-        
+        console.error('Error al verificar si el usuario existe por email:', error);
         return false;
       }
-
-      // Verificamos si encontramos algún resultado
-      const userExists = Array.isArray(data) && data.length > 0;
-      return userExists;
+      return data;
+      
     } catch (err) {
       console.error('Excepción al verificar email:', err);
       return false;
     }
   }
-} 
+  async getInfoUserAuthByEmail(email: string): Promise< { data: UserAuthInfo | null; error: Error | null }> {
+    if(!email) {
+      return { data: null, error: new Error('Email no proporcionado') };
+    }
+    try {
+      const { data, error } = await this.supabase.rpc('obtener_info_usuario', { email_input: email });
+      
+      if (error) {
+        console.error('Error al obtener información del usuario por email:', error);
+        return { data: null, error: error };
+      }
+
+      if (data?.providers.length > 0) {
+        return { data: { provider: data.providers }, error: null };
+      }
+      
+      return { data: null, error: new Error('Email o contraseña incorrectos') };
+    } catch (error) {
+      console.error('Error al obtener información del usuario por email:', error);
+      return { data: null, error: error instanceof Error ? error : new Error('Error desconocido al obtener información del usuario') };
+    }
+  }
+};

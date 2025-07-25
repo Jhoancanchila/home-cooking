@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useRe
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { SupabaseAuthService } from '../adapters/api/SupabaseAuthService';
 import { SupabaseUserProfileRepository } from '../adapters/api/SupabaseUserProfileRepository';
-import { ValidateUserAuth } from '../core/use-cases/ValidateUserAuth';
+import { ValidateUserAuth, ValidateUserInfoAuth } from '../core/use-cases/ValidateUserAuth';
 import { UserProfile } from '../core/entities/User';
 
 // Definir el tipo de contexto
@@ -20,6 +20,7 @@ interface AuthContextType {
   updateUserProfile: (userData: Partial<UserProfile>) => Promise<{ success: boolean; error: string | null }>;
   getUserProfile: () => Promise<{ success: boolean; data: UserProfile | null; error: string | null }>;
   signUpWithEmail: ( email: string, password: string)=> Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
 }
 
 // Crear el contexto
@@ -29,6 +30,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const authService = new SupabaseAuthService();
 const userProfileRepository = new SupabaseUserProfileRepository();
 const validateUserAuth = new ValidateUserAuth(userProfileRepository);
+const validateUserInfoAuth = new ValidateUserInfoAuth(userProfileRepository);
 
 // Proveedor del contexto
 interface AuthProviderProps {
@@ -324,10 +326,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      const isRegister = await checkRegisteredUser(email);
-      if (isRegister) {
-        setIsRegisteredUser(false);
-        throw new Error('El email ya está registrado. Por favor, intenta con otro.');
+      const { data, error: errorValidate } = await validateUserInfoAuth.execute(email);
+      if (errorValidate) {
+        if (errorValidate.message.includes('not found') || errorValidate.message.includes('no encontrado')) {
+          throw new Error('Usuario no encontrado. Por favor, verifica tu email o regístrate primero.');
+        }
+        throw new Error(`Error al validar usuario: ${errorValidate.message}`);
+      }
+      
+      if (!data) {
+        throw new Error('Usuario no encontrado. Por favor, verifica tu email o regístrate primero.');
+      }
+      
+      if (data?.provider && data?.provider.length > 0 && data?.provider.includes('google')) {
+        throw new Error(`Este usuario ya se encuentra registrado. Por favor, inicia sesión usando alguno de estos métodos ${data.provider.join(', ')}.`);
       }
       
       const { error } = await authService.signUpWithEmail(email, password);
@@ -335,9 +347,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (error) {
         throw error;
       }
-      
-      // Enviar un correo de verificación al usuario
-
 
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al registrar con email. Por favor, intenta nuevamente.');
@@ -347,6 +356,57 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(false);
     }
   }
+
+  const signInWithEmail = async (email: string, password: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Validaciones básicas de entrada
+      if (!email || !email.trim()) {
+        throw new Error('El email es requerido.');
+      }
+      if (!password || !password.trim()) {
+        throw new Error('La contraseña es requerida.');
+      }
+
+      // Validar formato de email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new Error('El formato del email no es válido.');
+      }
+
+      // Intentar iniciar sesión
+      const { error: signInError } = await authService.signInWithEmail(email, password);
+      if (signInError) {
+        // Proporcionar mensajes más específicos según el tipo de error de Supabase
+        if (signInError.message.includes('Invalid login credentials')) {
+          throw new Error('Email o contraseña incorrectos. Por favor, verifica tus datos.');
+        }
+        if (signInError.message.includes('Email not confirmed')) {
+          throw new Error('Tu email no ha sido confirmado. Revisa tu bandeja de entrada y confirma tu cuenta.');
+        }
+        if (signInError.message.includes('Too many requests')) {
+          throw new Error('Demasiados intentos de inicio de sesión. Por favor, espera unos minutos antes de intentar nuevamente.');
+        }
+        if (signInError.message.includes('Network')) {
+          throw new Error('Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.');
+        }
+        
+        // Error genérico si no coincide con ningún patrón específico
+        throw new Error(`Error al iniciar sesión: ${signInError.message}`);
+      }
+     
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido al iniciar sesión. Por favor, intenta nuevamente.';
+      setError(errorMessage);
+      // Re-lanzar el error para que el modal pueda manejarlo
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+     
 
   // Cerrar sesión
   const signOut = async () => {
@@ -385,7 +445,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signOut,
     updateUserProfile,
     getUserProfile,
-    signUpWithEmail
+    signUpWithEmail,
+    signInWithEmail
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
