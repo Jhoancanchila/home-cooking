@@ -6,6 +6,7 @@ import { Landing, ServiceSelection, SuccessPage, MyServices, NotFoundPage, MyAcc
 import EditService from "../presentation/pages/EditService";
 // Context
 import { AuthProvider } from "../context/AuthContext";
+import { ResetPasswordPage } from "../presentation/pages/ResetPasswordPage";
 
 const App: FC = () => {
   return (
@@ -23,6 +24,7 @@ const App: FC = () => {
             <Route path="/success" element={<SuccessPage />} />
             <Route path="/my-services" element={<MyServices />} />
             <Route path="/my-account" element={<MyAccountPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/edit-service/:serviceId" element={<EditService />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

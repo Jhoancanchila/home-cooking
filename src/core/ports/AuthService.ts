@@ -9,4 +9,7 @@ export interface AuthService {
   onAuthStateChange(callback: (event: string, session: Session | null) => void): { 
     data: { subscription: { unsubscribe: () => void } } 
   };
+  signInWithEmail(email: string, password: string): Promise<{ error: AuthError | null }>;
+  resetPassword(email: string): Promise<{ error: AuthError | null }>;
+  updatePassword(newPassword: string): Promise<{ error: AuthError | null }>;
 } 

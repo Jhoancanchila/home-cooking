@@ -46,4 +46,21 @@ export class SupabaseAuthService implements AuthService {
       callback(event, session);
     });
   }
-} 
+
+  // Solicitar reset de contraseña
+  async resetPassword(email: string) {
+    const redirectUrl = `${window.location.origin}/reset-password`;
+    console.log('Reset password redirect URL:', redirectUrl);
+    
+    return await this.supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl,
+    });
+  }
+
+  // Actualizar contraseña con el token de reset
+  async updatePassword(newPassword: string) {
+    return await this.supabase.auth.updateUser({
+      password: newPassword
+    });
+  }
+}

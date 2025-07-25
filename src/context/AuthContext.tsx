@@ -4,6 +4,7 @@ import { SupabaseAuthService } from '../adapters/api/SupabaseAuthService';
 import { SupabaseUserProfileRepository } from '../adapters/api/SupabaseUserProfileRepository';
 import { ValidateUserAuth, ValidateUserInfoAuth } from '../core/use-cases/ValidateUserAuth';
 import { UserProfile } from '../core/entities/User';
+import { RequestPasswordReset, UpdatePassword } from '../core/use-cases/ResetPassword';
 
 // Definir el tipo de contexto
 interface AuthContextType {
@@ -21,6 +22,10 @@ interface AuthContextType {
   getUserProfile: () => Promise<{ success: boolean; data: UserProfile | null; error: string | null }>;
   signUpWithEmail: ( email: string, password: string)=> Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<void>;
+  isPasswordRecovery: boolean; // Para manejar el estado de recuperación de contraseña
+  setPasswordRecoveryMode: (mode: boolean) => void;
 }
 
 // Crear el contexto
@@ -28,9 +33,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Inicializar servicios usando Clean Architecture
 const authService = new SupabaseAuthService();
+const authServiceRepository = new SupabaseAuthService();
 const userProfileRepository = new SupabaseUserProfileRepository();
 const validateUserAuth = new ValidateUserAuth(userProfileRepository);
 const validateUserInfoAuth = new ValidateUserInfoAuth(userProfileRepository);
+const requestPasswordReset = new RequestPasswordReset(authServiceRepository);
+const updatePasswordUseCase = new UpdatePassword(authServiceRepository);
 
 // Proveedor del contexto
 interface AuthProviderProps {
@@ -44,6 +52,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isRegisteredUser, setIsRegisteredUser] = useState<boolean>(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  console.log("🚀 ~ AuthProvider ~ isPasswordRecovery:", isPasswordRecovery)
   
   // Referencia para evitar guardados duplicados
   const userBeingSaved = useRef<{[email: string]: boolean}>({});
@@ -232,38 +242,69 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // Función para activar/desactivar el modo de recuperación de contraseña
+  const setPasswordRecoveryMode = (mode: boolean) => {
+    setIsPasswordRecovery(mode);
+  };
+
   // Efecto para inicializar la sesión
   useEffect(() => {
     const initializeSession = async () => {
       try {
+
+        setLoading(true);
+        
+        // Verificar si estamos en un flujo de recuperación de contraseña ANTES de obtener la sesión
+        const isRecoveryFlow = window.location.pathname === '/reset-password';
+        console.log('Initialize session - Recovery flow detected:', isRecoveryFlow);
+        
+        if (isRecoveryFlow) {
+          setIsPasswordRecovery(true);
+          console.log('Password recovery mode activated during initialization',isPasswordRecovery);
+        }
+
         // Obtener la sesión actual
         const { session: currentSession } = await authService.getSession();
         
-        if (currentSession) {
+        if (currentSession ) {
           setSession(currentSession);
           setUser(currentSession.user);
-          
-          // Verificar si el usuario está registrado en nuestra base de datos
-          if (currentSession.user?.email) {
-            // Solo procesamos el usuario si no hemos procesado la sesión inicial
-            if (!initialSessionProcessed.current) {
-              try {
-                await safelyCreateUser(currentSession.user, 'Sesión Inicial');
-                initialSessionProcessed.current = true;
-                // safelyCreateUser ya se encarga de obtener el perfil del usuario
-              } catch (err) {
-                console.error('Error al procesar usuario en la sesión inicial:', err);
-                setError(err instanceof Error ? err.message : 'Error al procesar el usuario. Por favor, intenta nuevamente.');
+
+          // Solo procesar el perfil del usuario si NO estamos en un flujo de recuperación de contraseña
+          if (!isRecoveryFlow && !isPasswordRecovery) {
+            console.log('Processing user profile (not in recovery flow)');
+            // Verificar si el usuario está registrado en nuestra base de datos
+            if (currentSession.user?.email) {
+              // Solo procesamos el usuario si no hemos procesado la sesión inicial
+              if (!initialSessionProcessed.current) {
+                try {
+                  await safelyCreateUser(currentSession.user, 'Sesión Inicial');
+                  initialSessionProcessed.current = true;
+                  // safelyCreateUser ya se encarga de obtener el perfil del usuario
+                } catch (err) {
+                  console.error('Error al procesar usuario en la sesión inicial:', err);
+                  setError(err instanceof Error ? err.message : 'Error al procesar el usuario. Por favor, intenta nuevamente.');
+                }
               }
             }
-          }
+          } else {
+            console.log('Skipping profile processing - recovery flow active');
+            initialSessionProcessed.current = true;
+          }         
         }
       } catch (err) {
         console.error('Error al inicializar la sesión:', err);
         setError('Error al inicializar la sesión. Por favor, intenta nuevamente.');
         throw err;
       } finally {
-        setLoading(false);
+        // Solo setear loading a false si NO estamos en recovery flow
+        const isRecoveryFlow = window.location.pathname === '/reset-password';
+        if (!isRecoveryFlow) {
+          console.log('Setting loading to false - initialization complete');
+          setLoading(false);
+        } else {
+          console.log('Keeping loading true - in recovery flow during initialization');
+        }
       }
     };
 
@@ -273,9 +314,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const { data: { subscription } } = authService.onAuthStateChange(async (event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user || null);
+
+      // Verificar si estamos en un flujo de recuperación de contraseña
+      const isRecoveryFlow = window.location.pathname === '/reset-password' || isPasswordRecovery;
       
       // Si hay un evento SIGNED_IN con usuario y email, verificamos y posiblemente lo guardamos
-      if (event === 'SIGNED_IN' && newSession?.user?.email) {
+      if (event === 'SIGNED_IN' && newSession?.user?.email && !isRecoveryFlow) {
         try {
           await safelyCreateUser(newSession.user, 'Evento Auth');
           // safelyCreateUser ya se encarga de obtener el perfil y actualizar estados
@@ -283,16 +327,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           console.error('Error al procesar usuario después de evento SIGNED_IN:', err);
           setError(err instanceof Error ? err.message : 'Error al procesar el usuario. Por favor, intenta nuevamente.');
         }
+      }else if (event === 'SIGNED_IN' && isRecoveryFlow) {
+      console.log('SIGNED_IN event in recovery flow - skipping automatic processing');
+      // En modo de recuperación, solo establecemos que el usuario está registrado
+      if (newSession?.user?.email) {
+        try {
+          const isRegistered = await checkRegisteredUser(newSession.user.email);
+          console.log('User registration status in recovery:', isRegistered);
+        } catch (err) {
+          console.error('Error checking user registration in recovery flow:', err);
+        }
+      }
+    }
+
+      if (!isRecoveryFlow) {
+        console.log('Setting loading to false - not in recovery flow');
+        setLoading(false);
+      } else {
+        console.log('Keeping loading state - in recovery flow');
       }
       
-      setLoading(false);
     });
 
     // Limpiar la suscripción
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [isPasswordRecovery]);
 
   // Iniciar sesión con Google
   const signInWithGoogle = async () => {
@@ -326,18 +387,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      const { data, error: errorValidate } = await validateUserInfoAuth.execute(email);
-      if (errorValidate) {
-        if (errorValidate.message.includes('not found') || errorValidate.message.includes('no encontrado')) {
-          throw new Error('Usuario no encontrado. Por favor, verifica tu email o regístrate primero.');
-        }
-        throw new Error(`Error al validar usuario: ${errorValidate.message}`);
-      }
-      
-      if (!data) {
-        throw new Error('Usuario no encontrado. Por favor, verifica tu email o regístrate primero.');
-      }
-      
+      const { data } = await validateUserInfoAuth.execute(email);
+
       if (data?.provider && data?.provider.length > 0 && data?.provider.includes('google')) {
         throw new Error(`Este usuario ya se encuentra registrado. Por favor, inicia sesión usando alguno de estos métodos ${data.provider.join(', ')}.`);
       }
@@ -432,6 +483,57 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // Solicitar reset de contraseña
+  const resetPassword = async (email: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Validar que el email no esté vacío
+      if (!email || !email.trim()) {
+        throw new Error('El email es requerido.');
+      }
+
+      const { success, error } = await requestPasswordReset.execute(email);
+      
+      if (!success || error) {
+        throw error || new Error('Error al solicitar reset de contraseña');
+      }
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Error al solicitar reset de contraseña. Por favor, intenta nuevamente.';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Actualizar contraseña
+  const updatePassword = async (newPassword: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { success, error } = await updatePasswordUseCase.execute(newPassword);
+      
+      if (!success || error) {
+        throw error || new Error('Error al actualizar contraseña');
+      }
+
+      setIsPasswordRecovery(false); // Resetear el estado de recuperación de contraseña
+      // Aquí podrías redirigir al usuario a una página de éxito o dashboard
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Error al actualizar contraseña. Por favor, intenta nuevamente.';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
   const value = {
     session,
     user,
@@ -446,7 +548,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     updateUserProfile,
     getUserProfile,
     signUpWithEmail,
-    signInWithEmail
+    signInWithEmail,
+    updatePassword,
+    resetPassword,
+    isPasswordRecovery,
+    setPasswordRecoveryMode
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
