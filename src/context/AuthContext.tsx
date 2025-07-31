@@ -53,7 +53,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [error, setError] = useState<string | null>(null);
   const [isRegisteredUser, setIsRegisteredUser] = useState<boolean>(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
-  console.log("🚀 ~ AuthProvider ~ isPasswordRecovery:", isPasswordRecovery)
   
   // Referencia para evitar guardados duplicados
   const userBeingSaved = useRef<{[email: string]: boolean}>({});
@@ -256,11 +255,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Verificar si estamos en un flujo de recuperación de contraseña ANTES de obtener la sesión
         const isRecoveryFlow = window.location.pathname === '/reset-password';
-        console.log('Initialize session - Recovery flow detected:', isRecoveryFlow);
         
         if (isRecoveryFlow) {
           setIsPasswordRecovery(true);
-          console.log('Password recovery mode activated during initialization',isPasswordRecovery);
         }
 
         // Obtener la sesión actual
@@ -272,7 +269,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
           // Solo procesar el perfil del usuario si NO estamos en un flujo de recuperación de contraseña
           if (!isRecoveryFlow && !isPasswordRecovery) {
-            console.log('Processing user profile (not in recovery flow)');
             // Verificar si el usuario está registrado en nuestra base de datos
             if (currentSession.user?.email) {
               // Solo procesamos el usuario si no hemos procesado la sesión inicial
@@ -300,7 +296,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Solo setear loading a false si NO estamos en recovery flow
         const isRecoveryFlow = window.location.pathname === '/reset-password';
         if (!isRecoveryFlow) {
-          console.log('Setting loading to false - initialization complete');
           setLoading(false);
         } else {
           console.log('Keeping loading true - in recovery flow during initialization');
@@ -341,7 +336,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
       if (!isRecoveryFlow) {
-        console.log('Setting loading to false - not in recovery flow');
         setLoading(false);
       } else {
         console.log('Keeping loading state - in recovery flow');
