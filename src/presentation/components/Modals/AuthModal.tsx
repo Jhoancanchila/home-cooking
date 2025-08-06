@@ -37,7 +37,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  console.log("Me estoy renderizando up")
 
   // Resetear estados cuando se abre/cierra el modal
   useEffect(() => {

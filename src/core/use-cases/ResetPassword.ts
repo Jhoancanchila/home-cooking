@@ -28,26 +28,42 @@ export class RequestPasswordReset {
 }
 
 export class UpdatePassword {
-  constructor(private authServiceRepository: AuthService) {}
+  constructor(private authRepository: AuthService) {}
 
   async execute(newPassword: string): Promise<{ success: boolean; error: Error | null }> {
     try {
-      // Validar contraseña
-      if (!newPassword || newPassword.length < 6) {
+      // Validaciones básicas
+      if (!newPassword || !newPassword.trim()) {
+        throw new Error('La nueva contraseña es requerida.');
+      }
+
+      if (newPassword.length < 6) {
         throw new Error('La contraseña debe tener al menos 6 caracteres.');
       }
 
-      const { error } = await this.authServiceRepository.updatePassword(newPassword);
+      if (newPassword.length > 128) {
+        throw new Error('La contraseña no puede exceder 128 caracteres.');
+      }
+
+      // Validar que tenga al menos una letra y un número
+      const hasLetter = /[a-zA-Z]/.test(newPassword);
+      const hasNumber = /\d/.test(newPassword);
       
-      if (error) {
-        throw error;
+      if (!hasLetter || !hasNumber) {
+        throw new Error('La contraseña debe contener al menos una letra y un número.');
+      }
+
+      const result = await this.authRepository.updatePassword(newPassword);
+      
+      if (result.error) {
+        throw result.error;
       }
 
       return { success: true, error: null };
     } catch (error) {
       return { 
         success: false, 
-        error: error instanceof Error ? error : new Error('Error al actualizar contraseña') 
+        error: error instanceof Error ? error : new Error('Error al actualizar la contraseña') 
       };
     }
   }

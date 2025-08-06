@@ -3,7 +3,7 @@ import { UserProfileRepository } from '../ports/UserRepository';
 
 // Caso de uso para validar la autenticación del usuario según su email
 export class ValidateUserAuth {
-  constructor(private userProfileRepository: UserProfileRepository) {}
+  constructor(private readonly userProfileRepository: UserProfileRepository) {}
 
   async execute(email: string): Promise<boolean> {
     if (!email) return false;
@@ -18,7 +18,7 @@ export class ValidateUserAuth {
 } 
 
 export class ValidateUserInfoAuth {
-  constructor(private userProfileRepository: UserProfileRepository) {}
+  constructor(private readonly userProfileRepository: UserProfileRepository) {}
 
   async execute(email: string): Promise<{ data: UserAuthInfo | null; error: Error | null }> {
     if (!email) {

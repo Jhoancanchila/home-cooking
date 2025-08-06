@@ -2,7 +2,7 @@ import { Service } from '../entities/Service';
 import { ServiceRepository } from '../ports/ServiceRepository';
 
 export class UpdateServiceData {
-  private serviceRepository: ServiceRepository;
+  private readonly serviceRepository: ServiceRepository;
 
   constructor(serviceRepository: ServiceRepository) {
     this.serviceRepository = serviceRepository;
